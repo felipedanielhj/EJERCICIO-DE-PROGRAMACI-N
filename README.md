@@ -41,7 +41,7 @@ int main() {
         if (cantidad_a_vender > stock) {
             printf("No hay suficiente stock. Solo hay %d.\n", stock);
         } else if (cantidad_a_vender < 0) {
-            printf("Cantidad no puede ser negativa, tonto.\n");  
+            printf("Cantidad no puede ser negativa.\n");  
         } else {
             stock = stock - cantidad_a_vender;  
             float total = cantidad_a_vender * precio;
