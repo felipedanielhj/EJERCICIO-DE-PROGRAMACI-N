@@ -1,0 +1,91 @@
+
+#include <stdio.h>
+
+int main() {
+    float calif[5][3];  
+    char *estudiantes[5] = {"Estudiante 1", "Estudiante 2", "Estudiante 3", "Estudiante 4", "Estudiante 5"};
+    char *asignaturas[3] = {"Matemáticas", "Historia", "Ciencias"};
+    
+    
+    printf("=== Ingreso de Calificaciones ===\n");
+    for (int i = 0; i < 5; i++) {
+        printf("\n%s:\n", estudiantes[i]);
+        for (int j = 0; j < 3; j++) {
+            float nota;
+            do {
+                printf("  %s (0-10): ", asignaturas[j]);
+                if (scanf("%f", &nota) != 1) {
+                    printf("¡Error! Ingresa un número válido.\n");
+                    while (getchar() != '\n');  
+                    nota = -1;  
+                }
+            } while (nota < 0 || nota > 10);
+            calif[i][j] = nota;
+        }
+    }
+    
+    
+    printf("\n=== Tabla de Calificaciones ===\n");
+    printf("Estudiante\t%s\t%s\t%s\n", asignaturas[0], asignaturas[1], asignaturas[2]);
+    for (int i = 0; i < 5; i++) {
+        printf("%s\t%.1f\t%.1f\t%.1f\n", estudiantes[i], calif[i][0], calif[i][1], calif[i][2]);
+    }
+    
+    
+    printf("\n=== Resultados ===\n");
+    
+    
+    printf("\n--- Promedios por Estudiante ---\n");
+    for (int i = 0; i < 5; i++) {
+        float suma = calif[i][0] + calif[i][1] + calif[i][2];
+        float prom = suma / 3.0;
+        printf("%s: %.2f\n", estudiantes[i], prom);
+    }
+    
+    
+    printf("\n--- Promedios por Asignatura ---\n");
+    for (int j = 0; j < 3; j++) {
+        float suma = 0;
+        for (int i = 0; i < 5; i++) {
+            suma += calif[i][j];
+        }
+        float prom = suma / 5.0;
+        printf("%s: %.2f\n", asignaturas[j], prom);
+    }
+    
+    
+    printf("\n--- Máx y Mín por Estudiante ---\n");
+    for (int i = 0; i < 5; i++) {
+        float max_est = calif[i][0], min_est = calif[i][0];
+        for (int j = 0; j < 3; j++) {
+            if (calif[i][j] > max_est) max_est = calif[i][j];
+            if (calif[i][j] < min_est) min_est = calif[i][j];
+        }
+        printf("%s - Máx: %.1f, Mín: %.1f\n", estudiantes[i], max_est, min_est);
+    }
+    
+    
+    printf("\n--- Máx y Mín por Asignatura ---\n");
+    for (int j = 0; j < 3; j++) {
+        float max_asig = calif[0][j], min_asig = calif[0][j];
+        for (int i = 0; i < 5; i++) {
+            if (calif[i][j] > max_asig) max_asig = calif[i][j];
+            if (calif[i][j] < min_asig) min_asig = calif[i][j];
+        }
+        printf("%s - Máx: %.1f, Mín: %.1f\n", asignaturas[j], max_asig, min_asig);
+    }
+    
+    
+    printf("\n--- Aprobados y Reprobados por Asignatura (Aprobado >=6) ---\n");
+    for (int j = 0; j < 3; j++) {
+        int aprob = 0;
+        for (int i = 0; i < 5; i++) {
+            if (calif[i][j] >= 6.0) aprob++;
+        }
+        int reprob = 5 - aprob;
+        printf("%s: %d aprobados, %d reprobados\n", asignaturas[j], aprob, reprob);
+    }
+    
+    printf("\n¡Fin del programa!\n");
+    return 0;
+}
