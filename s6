@@ -1,5 +1,75 @@
 #include <stdio.h>
-#include "inventario.h"
+#include <string.h>
+
+#define MAX_PRODUCTOS 10
+#define MAX_NOMBRE 50
+
+void ingresarProducto(char nombres[][MAX_NOMBRE], float precios[], int *numProductos) {
+    if (*numProductos >= MAX_PRODUCTOS) {
+        printf("No se pueden ingresar más productos. Límite alcanzado.\n");
+        return;
+    }
+    printf("Ingrese el nombre del producto: ");
+    scanf("%49s", nombres[*numProductos]);
+    printf("Ingrese el precio del producto: ");
+    scanf("%f", &precios[*numProductos]);
+    (*numProductos)++;
+    printf("Producto ingresado exitosamente.\n");
+}
+
+float calcularTotal(float precios[], int num) {
+    float total = 0.0;
+    for (int i = 0; i < num; i++) {
+        total += precios[i];
+    }
+    return total;
+}
+
+void encontrarMasCaro(char nombres[][MAX_NOMBRE], float precios[], int num, char *nombreMasCaro, float *precioMasCaro) {
+    if (num == 0) {
+        strcpy(nombreMasCaro, "Ninguno");
+        *precioMasCaro = 0.0;
+        return;
+    }
+    int indice = 0;
+    for (int i = 1; i < num; i++) {
+        if (precios[i] > precios[indice]) {
+            indice = i;
+        }
+    }
+    strcpy(nombreMasCaro, nombres[indice]);
+    *precioMasCaro = precios[indice];
+}
+
+void encontrarMasBarato(char nombres[][MAX_NOMBRE], float precios[], int num, char *nombreMasBarato, float *precioMasBarato) {
+    if (num == 0) {
+        strcpy(nombreMasBarato, "Ninguno");
+        *precioMasBarato = 0.0;
+        return;
+    }
+    int indice = 0;
+    for (int i = 1; i < num; i++) {
+        if (precios[i] < precios[indice]) {
+            indice = i;
+        }
+    }
+    strcpy(nombreMasBarato, nombres[indice]);
+    *precioMasBarato = precios[indice];
+}
+
+float calcularPromedio(float precios[], int num) {
+    if (num == 0) return 0.0;
+    return calcularTotal(precios, num) / num;
+}
+
+float buscarProducto(char nombres[][MAX_NOMBRE], float precios[], int num, char *nombreBuscado) {
+    for (int i = 0; i < num; i++) {
+        if (strcmp(nombres[i], nombreBuscado) == 0) {
+            return precios[i];
+        }
+    }
+    return -1.0;
+}
 
 int main() {
     char nombres[MAX_PRODUCTOS][MAX_NOMBRE];
@@ -44,7 +114,7 @@ int main() {
             case 5: {
                 char nombreBuscado[MAX_NOMBRE];
                 printf("Ingrese el nombre del producto a buscar: ");
-                scanf("%s", nombreBuscado);
+                scanf("%49s", nombreBuscado);
                 float precio = buscarProducto(nombres, precios, numProductos, nombreBuscado);
                 if (precio != -1.0) {
                     printf("Precio de %s: %.2f\n", nombreBuscado, precio);
@@ -63,3 +133,6 @@ int main() {
 
     return 0;
 }
+
+
+
