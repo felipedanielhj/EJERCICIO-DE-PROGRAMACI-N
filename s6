@@ -1,0 +1,65 @@
+#include <stdio.h>
+#include "inventario.h"
+
+int main() {
+    char nombres[MAX_PRODUCTOS][MAX_NOMBRE];
+    float precios[MAX_PRODUCTOS];
+    int numProductos = 0;
+    int opcion;
+
+    do {
+        printf("\n--- Gestión de Inventario ---\n");
+        printf("1. Ingresar producto\n");
+        printf("2. Calcular precio total del inventario\n");
+        printf("3. Mostrar producto más caro y más barato\n");
+        printf("4. Calcular precio promedio\n");
+        printf("5. Buscar producto por nombre\n");
+        printf("6. Salir\n");
+        printf("Seleccione una opción: ");
+        scanf("%d", &opcion);
+
+        switch (opcion) {
+            case 1:
+                ingresarProducto(nombres, precios, &numProductos);
+                break;
+            case 2: {
+                float total = calcularTotal(precios, numProductos);
+                printf("Precio total del inventario: %.2f\n", total);
+                break;
+            }
+            case 3: {
+                char nombreMasCaro[MAX_NOMBRE], nombreMasBarato[MAX_NOMBRE];
+                float precioMasCaro, precioMasBarato;
+                encontrarMasCaro(nombres, precios, numProductos, nombreMasCaro, &precioMasCaro);
+                encontrarMasBarato(nombres, precios, numProductos, nombreMasBarato, &precioMasBarato);
+                printf("Producto más caro: %s (%.2f)\n", nombreMasCaro, precioMasCaro);
+                printf("Producto más barato: %s (%.2f)\n", nombreMasBarato, precioMasBarato);
+                break;
+            }
+            case 4: {
+                float promedio = calcularPromedio(precios, numProductos);
+                printf("Precio promedio: %.2f\n", promedio);
+                break;
+            }
+            case 5: {
+                char nombreBuscado[MAX_NOMBRE];
+                printf("Ingrese el nombre del producto a buscar: ");
+                scanf("%s", nombreBuscado);
+                float precio = buscarProducto(nombres, precios, numProductos, nombreBuscado);
+                if (precio != -1.0) {
+                    printf("Precio de %s: %.2f\n", nombreBuscado, precio);
+                } else {
+                    printf("Producto no encontrado.\n");
+                }
+                break;
+            }
+            case 6:
+                printf("Saliendo del programa.\n");
+                break;
+            default:
+                printf("Opción inválida.\n");
+        }
+    } while (opcion != 6);
+
+    return 0;
+}
