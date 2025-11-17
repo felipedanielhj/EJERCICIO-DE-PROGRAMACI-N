@@ -1,109 +1,166 @@
-# EJERCICIO-DE-PROGRAMACI-N
-
 #include <stdio.h>
+#include <stdlib.h>
 
-int main() {
-    int id_producto;
-    char nombre_producto[50];
-    int stock;
-    float precio;
-    int cantidad_a_vender;
-    int opcion;
-    float ganancias = 0.0;   
+#define MAX_PRODUCTOS 5
+#define MAX_NOMBRE 50
 
-    
-    printf("Vamos a registrar el producto:\n");
-    printf("Ingresa el ID: ");
-    scanf("%d", &id_producto);
+char nombres[MAX_PRODUCTOS][MAX_NOMBRE];
+int cantidades[MAX_PRODUCTOS];
+float tiempos[MAX_PRODUCTOS];
+float recursos[MAX_PRODUCTOS];
 
-    printf("Ingresa el nombre: ");
-    scanf("%s", nombre_producto);
+char (*ptrNombres)[MAX_NOMBRE] = nombres;
+int *ptrCantidades = cantidades;
+float *ptrTiempos = tiempos;
+float *ptrRecursos = recursos;
 
-    printf("Ingresa el stock inicial: ");
-    scanf("%d", &stock);
+float limiteTiempo, limiteRecursos;
 
-    printf("Ingresa el precio unitario: ");
-    scanf("%f", &precio);
+int compararCadenas(char *str1, char *str2) {
+    int i = 0;
+    while (str1[i] != '\0' && str2[i] != '\0') {
+        if (str1[i] != str2[i]) {
+            return 0;
+        }
+        i++;
+    }
+    return (str1[i] == '\0' && str2[i] == '\0');
+}
 
-    printf("¡Listo! Producto registrado: %s, stock %d, precio %.2f\n", 
-            nombre_producto, stock, precio);
-
-    while (1) {
-        printf("\n--- MENÚ ---\n");
-        printf("1. Vender producto\n");
-        printf("2. Reabastecer producto\n");
-        printf("3. Consultar información del producto\n");
-        printf("4. Ver ganancias obtenidas\n");
-        printf("5. Salir\n");
-        printf("Elige una opción: ");
-        scanf("%d", &opcion);
-
-        switch (opcion) {
-
-            case 1: { 
-                while (1) {
-                    printf("\n¿Quieres vender? Ingresa cantidad (o 0 para volver al menú): ");
-                    scanf("%d", &cantidad_a_vender);
-
-                    if (cantidad_a_vender == 0) {
-                        break;
-                    }
-
-                    if (cantidad_a_vender > stock) {
-                        printf("No hay suficiente stock. Solo hay %d.\n", stock);
-                    } else if (cantidad_a_vender < 0) {
-                        printf("Cantidad no puede ser negativa.\n");
-                    } else {
-                        stock -= cantidad_a_vender;
-                        float total = cantidad_a_vender * precio;
-                        ganancias += total;
-                        printf("Vendiste %d unidades por %.2f total.\n", cantidad_a_vender, total);
-                        printf("Stock ahora: %d\n", stock);
-                    }
-                }
-                break;
-            }
-
-            case 2: { 
-                int cantidad_reabastecer;
-                printf("¿Cuántas unidades deseas agregar al stock?: ");
-                scanf("%d", &cantidad_reabastecer);
-
-                if (cantidad_reabastecer > 0) {
-                    stock += cantidad_reabastecer;
-                    printf("Stock actualizado. Ahora tienes %d unidades.\n", stock);
-                } else {
-                    printf("Cantidad inválida.\n");
-                }
-                break;
-            }
-
-            case 3: { 
-                printf("\n--- INFORMACIÓN DEL PRODUCTO ---\n");
-                printf("ID: %d\n", id_producto);
-                printf("Nombre: %s\n", nombre_producto);
-                printf("Precio unitario: %.2f\n", precio);
-                printf("Stock actual: %d\n", stock);
-                printf("Ganancias acumuladas: %.2f\n", ganancias);
-                break;
-            }
-
-            case 4: { 
-                printf("\nGanancias totales hasta ahora: %.2f\n", ganancias);
-                break;
-            }
-
-            case 5: { 
-                printf("Gracias por usar el programa.\n");
-                return 0;
-            }
-
-            default:
-                printf("Opción inválida. Intenta otra vez.\n");
-                break;
+int buscarProducto(char *nombreBuscado) {
+    for (int i = 0; i < MAX_PRODUCTOS; i++) {
+        if (compararCadenas(ptrNombres[i], nombreBuscado)) {
+            return i;
         }
     }
+    return -1;
+}
 
+void ingresarProducto() {
+    int indice = -1;
+    for (int i = 0; i < MAX_PRODUCTOS; i++) {
+        if (ptrNombres[i][0] == '\0') {
+            indice = i;
+            break;
+        }
+    }
+    if (indice == -1) {
+        printf("No hay espacio para más productos.\n");
+        return;
+    }
+    printf("Ingrese nombre del producto: ");
+    scanf("%s", ptrNombres[indice]);
+    printf("Ingrese cantidad demandada: ");
+    scanf("%d", &ptrCantidades[indice]);
+    printf("Ingrese tiempo de fabricación por unidad: ");
+    scanf("%f", &ptrTiempos[indice]);
+    printf("Ingrese recursos por unidad: ");
+    scanf("%f", &ptrRecursos[indice]);
+    printf("Producto ingresado exitosamente.\n");
+}
+
+void editarProducto() {
+    char nombreBuscado[MAX_NOMBRE];
+    printf("Ingrese nombre del producto a editar: ");
+    scanf("%s", nombreBuscado);
+    int indice = buscarProducto(nombreBuscado);
+    if (indice == -1) {
+        printf("Producto no encontrado.\n");
+        return;
+    }
+    printf("Producto encontrado. Ingrese nuevos datos:\n");
+    printf("Nueva cantidad: ");
+    scanf("%d", &ptrCantidades[indice]);
+    printf("Nuevo tiempo por unidad: ");
+    scanf("%f", &ptrTiempos[indice]);
+    printf("Nuevos recursos por unidad: ");
+    scanf("%f", &ptrRecursos[indice]);
+    printf("Producto editado exitosamente.\n");
+}
+
+void eliminarProducto() {
+    char nombreBuscado[MAX_NOMBRE];
+    printf("Ingrese nombre del producto a eliminar: ");
+    scanf("%s", nombreBuscado);
+    int indice = buscarProducto(nombreBuscado);
+    if (indice == -1) {
+        printf("Producto no encontrado.\n");
+        return;
+    }
+    for (int i = indice; i < MAX_PRODUCTOS - 1; i++) {
+        int j = 0;
+        while (ptrNombres[i+1][j] != '\0') {
+            ptrNombres[i][j] = ptrNombres[i+1][j];
+            j++;
+        }
+        ptrNombres[i][j] = '\0';
+        ptrCantidades[i] = ptrCantidades[i+1];
+        ptrTiempos[i] = ptrTiempos[i+1];
+        ptrRecursos[i] = ptrRecursos[i+1];
+    }
+    ptrNombres[MAX_PRODUCTOS-1][0] = '\0';
+    ptrCantidades[MAX_PRODUCTOS-1] = 0;
+    ptrTiempos[MAX_PRODUCTOS-1] = 0.0;
+    ptrRecursos[MAX_PRODUCTOS-1] = 0.0;
+    printf("Producto eliminado exitosamente.\n");
+}
+
+void calcularYVerificar() {
+    float tiempoTotal = 0.0, recursoTotal = 0.0;
+    for (int i = 0; i < MAX_PRODUCTOS; i++) {
+        if (ptrNombres[i][0] != '\0') {
+            tiempoTotal += ptrCantidades[i] * ptrTiempos[i];
+            recursoTotal += ptrCantidades[i] * ptrRecursos[i];
+        }
+    }
+    printf("Tiempo total requerido: %.2f\n", tiempoTotal);
+    printf("Recursos totales requeridos: %.2f\n", recursoTotal);
+    int puedeCumplir = (tiempoTotal <= limiteTiempo && recursoTotal <= limiteRecursos);
+    printf("¿Puede cumplirse la demanda? %s\n", puedeCumplir ? "Sí" : "No");
+}
+
+int main() {
+    for (int i = 0; i < MAX_PRODUCTOS; i++) {
+        nombres[i][0] = '\0';
+        cantidades[i] = 0;
+        tiempos[i] = 0.0;
+        recursos[i] = 0.0;
+    }
+    printf("Ingrese límite de tiempo disponible: ");
+    scanf("%f", &limiteTiempo);
+    printf("Ingrese límite de recursos disponible: ");
+    scanf("%f", &limiteRecursos);
+
+    int opcion;
+    while (1) {
+        printf("\n--- Menú ---\n");
+        printf("1. Ingresar producto\n");
+        printf("2. Editar producto\n");
+        printf("3. Eliminar producto\n");
+        printf("4. Calcular y verificar demanda\n");
+        printf("5. Salir\n");
+        printf("Seleccione opción: ");
+        scanf("%d", &opcion);
+        switch (opcion) {
+            case 1:
+                ingresarProducto();
+                break;
+            case 2:
+                editarProducto();
+                break;
+            case 3:
+                eliminarProducto();
+                break;
+            case 4:
+                calcularYVerificar();
+                break;
+            case 5:
+                printf("Saliendo del programa.\n");
+                return 0;
+            default:
+                printf("Opción inválida.\n");
+        }
+    }
     return 0;
 }
 
