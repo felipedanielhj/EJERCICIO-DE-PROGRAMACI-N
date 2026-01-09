@@ -1,0 +1,583 @@
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <ctype.h>
+
+#define VEH_FILE   "vehiculos.dat"
+#define CLI_FILE   "clientes.dat"
+#define VTA_FILE   "ventas.dat"
+
+#define STR_SMALL  32
+#define STR_MED    64
+#define STR_BIG    128
+
+typedef struct {
+    int  id;
+    char marca[STR_SMALL];
+    char modelo[STR_SMALL];
+    char tipo[STR_SMALL];     
+    int  anio;
+    float precio;
+    int  usado;               
+    int  disponible;          
+    int  activo;              
+} Vehiculo;
+
+typedef struct {
+    int  id;
+    char nombre[STR_MED];
+    int  edad;
+
+    
+    char pref_marca[STR_SMALL];  
+    char pref_tipo[STR_SMALL];   
+    int  pref_usado;            
+    float presupuesto;           
+} Cliente;
+
+typedef struct {
+    int  id;
+    int  idVehiculo;
+    int  idCliente;
+    char vendedor[STR_MED];
+    char fecha[16];          
+    float precioFinal;
+} Venta;
+
+static void trim_newline(char* s) {
+    size_t n = strlen(s);
+    while (n > 0 && (s[n-1] == '\n' || s[n-1] == '\r')) {
+        s[n-1] = '\0';
+        n--;
+    }
+}
+
+static void read_line(const char* prompt, char* out, size_t cap) {
+    if (prompt) printf("%s", prompt);
+    if (fgets(out, (int)cap, stdin) == NULL) {
+        out[0] = '\0';
+        return;
+    }
+    trim_newline(out);
+}
+
+static int read_int(const char* prompt, int minVal, int maxVal) {
+    char buf[64];
+    int x;
+    while (1) {
+        read_line(prompt, buf, sizeof(buf));
+        if (sscanf(buf, "%d", &x) == 1) {
+            if (x >= minVal && x <= maxVal) return x;
+        }
+        printf("Entrada inválida. Intenta nuevamente.\n");
+    }
+}
+
+static float read_float(const char* prompt, float minVal, float maxVal) {
+    char buf[64];
+    float x;
+    while (1) {
+        read_line(prompt, buf, sizeof(buf));
+        if (sscanf(buf, "%f", &x) == 1) {
+            if (x >= minVal && x <= maxVal) return x;
+        }
+        printf("Entrada inválida. Intenta nuevamente.\n");
+    }
+}
+
+static int str_ieq(const char* a, const char* b) {
+    
+    while (*a && *b) {
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0;
+        a++; b++;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+static int str_is_empty(const char* s) {
+    return s == NULL || s[0] == '\0';
+}
+
+static void today_yyyy_mm_dd(char out[16]) {
+    time_t t = time(NULL);
+    struct tm tmv;
+#if defined(_WIN32)
+    localtime_s(&tmv, &t);
+#else
+    tmv = *localtime(&t);
+#endif
+    snprintf(out, 16, "%04d-%02d-%02d", tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday);
+}
+
+
+static int append_vehicle(Vehiculo** arr, int* n, Vehiculo v) {
+    Vehiculo* tmp = (Vehiculo*)realloc(*arr, (size_t)(*n + 1) * sizeof(Vehiculo));
+    if (!tmp) return 0;
+    *arr = tmp;
+    (*arr)[*n] = v;
+    (*n)++;
+    return 1;
+}
+
+static int append_client(Cliente** arr, int* n, Cliente c) {
+    Cliente* tmp = (Cliente*)realloc(*arr, (size_t)(*n + 1) * sizeof(Cliente));
+    if (!tmp) return 0;
+    *arr = tmp;
+    (*arr)[*n] = c;
+    (*n)++;
+    return 1;
+}
+
+static int append_sale(Venta** arr, int* n, Venta s) {
+    Venta* tmp = (Venta*)realloc(*arr, (size_t)(*n + 1) * sizeof(Venta));
+    if (!tmp) return 0;
+    *arr = tmp;
+    (*arr)[*n] = s;
+    (*n)++;
+    return 1;
+}
+
+
+static int load_vehicles(Vehiculo** arr, int* n) {
+    *arr = NULL; *n = 0;
+    FILE* f = fopen(VEH_FILE, "rb");
+    if (!f) return 1; // si no existe, ok (vacío)
+    Vehiculo v;
+    while (fread(&v, sizeof(Vehiculo), 1, f) == 1) {
+        if (!append_vehicle(arr, n, v)) { fclose(f); return 0; }
+    }
+    fclose(f);
+    return 1;
+}
+
+static int save_vehicles(Vehiculo* arr, int n) {
+    FILE* f = fopen(VEH_FILE, "wb");
+    if (!f) return 0;
+    if (n > 0) {
+        if (fwrite(arr, sizeof(Vehiculo), (size_t)n, f) != (size_t)n) { fclose(f); return 0; }
+    }
+    fclose(f);
+    return 1;
+}
+
+static int load_clients(Cliente** arr, int* n) {
+    *arr = NULL; *n = 0;
+    FILE* f = fopen(CLI_FILE, "rb");
+    if (!f) return 1;
+    Cliente c;
+    while (fread(&c, sizeof(Cliente), 1, f) == 1) {
+        if (!append_client(arr, n, c)) { fclose(f); return 0; }
+    }
+    fclose(f);
+    return 1;
+}
+
+static int save_clients(Cliente* arr, int n) {
+    FILE* f = fopen(CLI_FILE, "wb");
+    if (!f) return 0;
+    if (n > 0) {
+        if (fwrite(arr, sizeof(Cliente), (size_t)n, f) != (size_t)n) { fclose(f); return 0; }
+    }
+    fclose(f);
+    return 1;
+}
+
+static int load_sales(Venta** arr, int* n) {
+    *arr = NULL; *n = 0;
+    FILE* f = fopen(VTA_FILE, "rb");
+    if (!f) return 1;
+    Venta s;
+    while (fread(&s, sizeof(Venta), 1, f) == 1) {
+        if (!append_sale(arr, n, s)) { fclose(f); return 0; }
+    }
+    fclose(f);
+    return 1;
+}
+
+static int save_sales(Venta* arr, int n) {
+    FILE* f = fopen(VTA_FILE, "wb");
+    if (!f) return 0;
+    if (n > 0) {
+        if (fwrite(arr, sizeof(Venta), (size_t)n, f) != (size_t)n) { fclose(f); return 0; }
+    }
+    fclose(f);
+    return 1;
+}
+
+static int next_vehicle_id(Vehiculo* arr, int n) {
+    int maxId = 0;
+    for (int i = 0; i < n; i++) if (arr[i].id > maxId) maxId = arr[i].id;
+    return maxId + 1;
+}
+
+static int next_client_id(Cliente* arr, int n) {
+    int maxId = 0;
+    for (int i = 0; i < n; i++) if (arr[i].id > maxId) maxId = arr[i].id;
+    return maxId + 1;
+}
+
+static int next_sale_id(Venta* arr, int n) {
+    int maxId = 0;
+    for (int i = 0; i < n; i++) if (arr[i].id > maxId) maxId = arr[i].id;
+    return maxId + 1;
+}
+
+static int find_vehicle_index_by_id(Vehiculo* arr, int n, int id) {
+    for (int i = 0; i < n; i++) if (arr[i].id == id) return i;
+    return -1;
+}
+
+static int find_client_index_by_id(Cliente* arr, int n, int id) {
+    for (int i = 0; i < n; i++) if (arr[i].id == id) return i;
+    return -1;
+}
+
+
+static void print_vehicle(const Vehiculo* v) {
+    printf("ID:%d | %s %s | Tipo:%s | Año:%d | $%.2f | %s | %s\n",
+        v->id, v->marca, v->modelo, v->tipo, v->anio, v->precio,
+        v->usado ? "USADO" : "NUEVO",
+        (v->disponible && v->activo) ? "DISPONIBLE" : "NO DISP./INACTIVO");
+}
+
+static void list_vehicles(Vehiculo* arr, int n, int onlyAvailable) {
+    printf("\n--- INVENTARIO ---\n");
+    int shown = 0;
+    for (int i = 0; i < n; i++) {
+        if (!arr[i].activo) continue;
+        if (onlyAvailable && !arr[i].disponible) continue;
+        print_vehicle(&arr[i]);
+        shown++;
+    }
+    if (shown == 0) printf("(Sin registros)\n");
+}
+
+static void print_client(const Cliente* c) {
+    printf("ID:%d | %s | Edad:%d | PrefMarca:%s | PrefTipo:%s | Pref:%s | Presupuesto:$%.2f\n",
+        c->id, c->nombre, c->edad,
+        str_is_empty(c->pref_marca) ? "(cualquiera)" : c->pref_marca,
+        str_is_empty(c->pref_tipo)  ? "(cualquiera)" : c->pref_tipo,
+        (c->pref_usado == -1) ? "(cualquiera)" : (c->pref_usado ? "USADO" : "NUEVO"),
+        c->presupuesto);
+}
+
+static void list_clients(Cliente* arr, int n) {
+    printf("\n--- CLIENTES ---\n");
+    if (n == 0) { printf("(Sin registros)\n"); return; }
+    for (int i = 0; i < n; i++) print_client(&arr[i]);
+}
+
+static void list_sales(Venta* arr, int n) {
+    printf("\n--- VENTAS ---\n");
+    if (n == 0) { printf("(Sin registros)\n"); return; }
+    for (int i = 0; i < n; i++) {
+        printf("ID:%d | Fecha:%s | VehiculoID:%d | ClienteID:%d | Vendedor:%s | $%.2f\n",
+            arr[i].id, arr[i].fecha, arr[i].idVehiculo, arr[i].idCliente, arr[i].vendedor, arr[i].precioFinal);
+    }
+}
+
+
+static void add_vehicle(Vehiculo** vArr, int* vN) {
+    Vehiculo v;
+    v.id = next_vehicle_id(*vArr, *vN);
+
+    read_line("Marca: ", v.marca, sizeof(v.marca));
+    read_line("Modelo: ", v.modelo, sizeof(v.modelo));
+    read_line("Tipo (ej. camioneta): ", v.tipo, sizeof(v.tipo));
+    v.anio = read_int("Año (1900-2100): ", 1900, 2100);
+    v.precio = read_float("Precio: ", 0.0f, 1000000000.0f);
+    v.usado = read_int("Es usado? (1=si, 0=no): ", 0, 1);
+
+    v.disponible = 1;
+    v.activo = 1;
+
+    if (!append_vehicle(vArr, vN, v)) {
+        printf("Error de memoria.\n");
+        return;
+    }
+    printf("Vehículo registrado con ID %d.\n", v.id);
+}
+
+static void edit_vehicle(Vehiculo* vArr, int vN) {
+    int id = read_int("ID de vehículo a editar: ", 1, 1000000000);
+    int idx = find_vehicle_index_by_id(vArr, vN, id);
+    if (idx < 0 || !vArr[idx].activo) {
+        printf("No existe ese vehículo.\n");
+        return;
+    }
+
+    printf("Actual:\n");
+    print_vehicle(&vArr[idx]);
+
+    printf("\n¿Qué deseas editar?\n");
+    printf("1) Precio\n2) Disponibilidad (1/0)\n3) Marcar eliminado (borrado lógico)\n0) Volver\n");
+    int op = read_int("Opción: ", 0, 3);
+
+    if (op == 1) {
+        vArr[idx].precio = read_float("Nuevo precio: ", 0.0f, 1000000000.0f);
+        printf("Precio actualizado.\n");
+    } else if (op == 2) {
+        vArr[idx].disponible = read_int("Disponible? (1=si,0=no): ", 0, 1);
+        printf("Disponibilidad actualizada.\n");
+    } else if (op == 3) {
+        vArr[idx].activo = 0;
+        vArr[idx].disponible = 0;
+        printf("Vehículo marcado como eliminado.\n");
+    }
+}
+
+
+static void add_client(Cliente** cArr, int* cN) {
+    Cliente c;
+    c.id = next_client_id(*cArr, *cN);
+
+    read_line("Nombre (puede tener espacios): ", c.nombre, sizeof(c.nombre));
+    c.edad = read_int("Edad (0-120): ", 0, 120);
+
+    printf("\n--- Preferencias del cliente (enter para 'cualquiera') ---\n");
+    read_line("Marca preferida: ", c.pref_marca, sizeof(c.pref_marca));
+    read_line("Tipo preferido (ej. camioneta): ", c.pref_tipo, sizeof(c.pref_tipo));
+
+    printf("Preferencia de condición: -1 cualquiera, 0 nuevo, 1 usado\n");
+    c.pref_usado = read_int("Tu opción (-1,0,1): ", -1, 1);
+
+    c.presupuesto = read_float("Presupuesto máximo (0 si no aplica): ", 0.0f, 1000000000.0f);
+
+    if (!append_client(cArr, cN, c)) {
+        printf("Error de memoria.\n");
+        return;
+    }
+    printf("Cliente registrado con ID %d.\n", c.id);
+}
+
+
+static int vehicle_matches(const Vehiculo* v,
+                           const char* marca,
+                           const char* tipo,
+                           int pref_usado,
+                           float presupuesto_max,
+                           int onlyAvailable) {
+    if (!v->activo) return 0;
+    if (onlyAvailable && !v->disponible) return 0;
+
+    if (!str_is_empty(marca) && !str_ieq(v->marca, marca)) return 0;
+    if (!str_is_empty(tipo)  && !str_ieq(v->tipo,  tipo))  return 0;
+
+    if (pref_usado != -1 && v->usado != pref_usado) return 0;
+
+    if (presupuesto_max > 0.0f && v->precio > presupuesto_max) return 0;
+
+    return 1;
+}
+
+static void search_vehicles_interactive(Vehiculo* vArr, int vN) {
+    char marca[STR_SMALL], tipo[STR_SMALL];
+    int pref_usado;
+    float presupuesto;
+
+    printf("\n--- BÚSQUEDA ---\n");
+    read_line("Marca (enter=cualquiera): ", marca, sizeof(marca));
+    read_line("Tipo (enter=cualquiera): ", tipo, sizeof(tipo));
+    printf("Condición: -1 cualquiera, 0 nuevo, 1 usado\n");
+    pref_usado = read_int("Tu opción (-1,0,1): ", -1, 1);
+    presupuesto = read_float("Presupuesto máximo (0 si no aplica): ", 0.0f, 1000000000.0f);
+
+    printf("\nResultados (solo disponibles):\n");
+    int found = 0;
+    for (int i = 0; i < vN; i++) {
+        if (vehicle_matches(&vArr[i], marca, tipo, pref_usado, presupuesto, 1)) {
+            print_vehicle(&vArr[i]);
+            found++;
+        }
+    }
+    if (found == 0) printf("(Sin coincidencias)\n");
+}
+
+static void search_by_client_requirements(Vehiculo* vArr, int vN, const Cliente* c) {
+    printf("\n--- Vehículos recomendados para %s (ID %d) ---\n", c->nombre, c->id);
+    int found = 0;
+    for (int i = 0; i < vN; i++) {
+        if (vehicle_matches(&vArr[i],
+                            c->pref_marca,
+                            c->pref_tipo,
+                            c->pref_usado,
+                            c->presupuesto,
+                            1)) {
+            print_vehicle(&vArr[i]);
+            found++;
+        }
+    }
+    if (found == 0) printf("(Sin coincidencias para las preferencias/presupuesto)\n");
+}
+
+
+static void make_sale(Vehiculo* vArr, int vN, Cliente* cArr, int cN, Venta** sArr, int* sN) {
+    if (vN == 0) {
+        printf("No hay vehículos registrados.\n");
+        return;
+    }
+    if (cN == 0) {
+        printf("No hay clientes registrados. Registra un cliente primero.\n");
+        return;
+    }
+
+    int idC = read_int("ID del cliente: ", 1, 1000000000);
+    int cIdx = find_client_index_by_id(cArr, cN, idC);
+    if (cIdx < 0) {
+        printf("Cliente no encontrado.\n");
+        return;
+    }
+
+    
+    search_by_client_requirements(vArr, vN, &cArr[cIdx]);
+
+    int idV = read_int("\nID del vehículo a vender: ", 1, 1000000000);
+    int vIdx = find_vehicle_index_by_id(vArr, vN, idV);
+
+    if (vIdx < 0 || !vArr[vIdx].activo) {
+        printf("Vehículo no encontrado.\n");
+        return;
+    }
+    if (!vArr[vIdx].disponible) {
+        printf("Ese vehículo no está disponible.\n");
+        return;
+    }
+
+    
+    int ok = vehicle_matches(&vArr[vIdx],
+                             cArr[cIdx].pref_marca,
+                             cArr[cIdx].pref_tipo,
+                             cArr[cIdx].pref_usado,
+                             cArr[cIdx].presupuesto,
+                             1);
+    if (!ok) {
+        printf("Aviso: El vehículo no coincide con preferencias/presupuesto del cliente.\n");
+        int cont = read_int("¿Continuar igual? (1=si,0=no): ", 0, 1);
+        if (!cont) return;
+    }
+
+    Venta s;
+    s.id = next_sale_id(*sArr, *sN);
+    s.idVehiculo = vArr[vIdx].id;
+    s.idCliente  = cArr[cIdx].id;
+
+    read_line("Nombre del vendedor: ", s.vendedor, sizeof(s.vendedor));
+    today_yyyy_mm_dd(s.fecha);
+
+    
+    printf("Precio actual del vehículo: $%.2f\n", vArr[vIdx].precio);
+    s.precioFinal = read_float("Precio final de venta: ", 0.0f, 1000000000.0f);
+
+    if (!append_sale(sArr, sN, s)) {
+        printf("Error de memoria (venta).\n");
+        return;
+    }
+
+    
+    vArr[vIdx].disponible = 0;
+
+    printf("Venta registrada con ID %d. Vehículo ID %d marcado como no disponible.\n", s.id, s.idVehiculo);
+}
+
+
+static void menu_vehicles(Vehiculo** vArr, int* vN) {
+    while (1) {
+        printf("\n=== MENÚ VEHÍCULOS ===\n");
+        printf("1) Registrar vehículo\n");
+        printf("2) Listar inventario (todos activos)\n");
+        printf("3) Listar disponibles\n");
+        printf("4) Buscar vehículos\n");
+        printf("5) Editar / eliminar vehículo\n");
+        printf("0) Volver\n");
+        int op = read_int("Opción: ", 0, 5);
+
+        if (op == 0) break;
+        if (op == 1) add_vehicle(vArr, vN);
+        else if (op == 2) list_vehicles(*vArr, *vN, 0);
+        else if (op == 3) list_vehicles(*vArr, *vN, 1);
+        else if (op == 4) search_vehicles_interactive(*vArr, *vN);
+        else if (op == 5) edit_vehicle(*vArr, *vN);
+
+        
+        if (!save_vehicles(*vArr, *vN)) printf("ERROR: no se pudo guardar %s\n", VEH_FILE);
+    }
+}
+
+static void menu_clients(Cliente** cArr, int* cN) {
+    while (1) {
+        printf("\n=== MENÚ CLIENTES ===\n");
+        printf("1) Registrar cliente (con preferencias)\n");
+        printf("2) Listar clientes\n");
+        printf("0) Volver\n");
+        int op = read_int("Opción: ", 0, 2);
+
+        if (op == 0) break;
+        if (op == 1) add_client(cArr, cN);
+        else if (op == 2) list_clients(*cArr, *cN);
+
+        if (!save_clients(*cArr, *cN)) printf("ERROR: no se pudo guardar %s\n", CLI_FILE);
+    }
+}
+
+static void menu_sales(Vehiculo* vArr, int vN, Cliente* cArr, int cN, Venta** sArr, int* sN) {
+    while (1) {
+        printf("\n=== MENÚ VENTAS ===\n");
+        printf("1) Realizar venta\n");
+        printf("2) Listar ventas\n");
+        printf("0) Volver\n");
+        int op = read_int("Opción: ", 0, 2);
+
+        if (op == 0) break;
+        if (op == 1) {
+            make_sale(vArr, vN, cArr, cN, sArr, sN);
+            if (!save_sales(*sArr, *sN)) printf("ERROR: no se pudo guardar %s\n", VTA_FILE);
+            if (!save_vehicles(vArr, vN)) printf("ERROR: no se pudo guardar %s\n", VEH_FILE);
+        } else if (op == 2) {
+            list_sales(*sArr, *sN);
+        }
+    }
+}
+
+
+int main(void) {
+    Vehiculo* vehiculos = NULL;
+    Cliente* clientes = NULL;
+    Venta* ventas = NULL;
+    int nV = 0, nC = 0, nS = 0;
+
+    if (!load_vehicles(&vehiculos, &nV)) { printf("Error cargando %s\n", VEH_FILE); return 1; }
+    if (!load_clients(&clientes, &nC))   { printf("Error cargando %s\n", CLI_FILE); return 1; }
+    if (!load_sales(&ventas, &nS))       { printf("Error cargando %s\n", VTA_FILE); return 1; }
+
+    while (1) {
+        printf("\n=============================\n");
+        printf(" SGIC - Ruedas de Oro\n");
+        printf("=============================\n");
+        printf("1) Vehículos\n");
+        printf("2) Clientes\n");
+        printf("3) Ventas\n");
+        printf("0) Salir\n");
+
+        int op = read_int("Opción: ", 0, 3);
+        if (op == 0) break;
+
+        if (op == 1) menu_vehicles(&vehiculos, &nV);
+        else if (op == 2) menu_clients(&clientes, &nC);
+        else if (op == 3) menu_sales(vehiculos, nV, clientes, nC, &ventas, &nS);
+    }
+
+    
+    save_vehicles(vehiculos, nV);
+    save_clients(clientes, nC);
+    save_sales(ventas, nS);
+
+    free(vehiculos);
+    free(clientes);
+    free(ventas);
+
+    printf("Programa finalizado.\n");
+    return 0;
+}
